@@ -1,0 +1,19 @@
+# IDE settings
+.idea/
+.vscode/
+
+# Jupyter notebook
+**/.ipynb_checkpoints/
+
+# Compiled files
+bin/
+.pio/
+*.exe
+*.ilk
+*.pdb
+
+# Others
+*.xlsx
+*.pptx
+*.lnk
+*.url
