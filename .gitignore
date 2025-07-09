@@ -12,11 +12,13 @@ bin/
 *.ilk
 *.pdb
 
+# Secrets
+esw/config/secrets.ini
+*.json
+
 # Others
+papers/
 *.xlsx
 *.pptx
 *.lnk
 *.url
-*.projbuild
-*.json
-papers/
