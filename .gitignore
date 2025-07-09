@@ -17,3 +17,6 @@ bin/
 *.pptx
 *.lnk
 *.url
+*.projbuild
+*.json
+papers/
