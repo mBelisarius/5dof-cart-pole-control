@@ -97,7 +97,7 @@ class Camera:
             p_rot.z = -self.distance * safe_factor
 
         # Perspective projection
-        fov = self.fov / (self.distance + p_rot.z + 1.0e-7)
+        fov = self.fov / (self.distance + p_rot.z + 1.0e-8)
         px = int(self._screen.width / 2 + p_rot.x * fov)
         py = int(self._screen.height / 2 + p_rot.y * fov)
         return np.array([px, py])

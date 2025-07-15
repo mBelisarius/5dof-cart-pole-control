@@ -4,17 +4,32 @@ import sys
 
 from pygame.locals import *
 
+from cart import Cart
 from vec3 import Vec3
 from screen import Camera, Screen, ScreenObject, BoxSO, DiskSO
-from drawings import draw_axes, draw_ground, draw_cart
+from drawings import draw_axes, draw_ground
+from receiver import ReceiverFirebase
+from imu import ImuRawData, ImuData, Imu
 
 
 def main():
-    hb = 25.0e-2
-    hr = 1.0e-2
-    eb = 15.0e-2 / 2.0
-    ew = 8.0e-3
-    dw = 15.0e-2 / 2.0
+    cart = Cart(
+        hbc = 8.0e-2,
+        hb = 20.0e-2,
+        hr = 1.0e-2,
+        eb = 8.0e-2,
+        ew = 8.0e-3,
+        dw = 14.5e-2,
+    )
+
+    # cart._imu_cm.sglobal.g.y = 0.01
+    # cart._imu_cm.slocal.g.y = 0.01
+
+    receiver = ReceiverFirebase(
+        host="https://dof-cart-pole-control-default-rtdb.firebaseio.com/",
+        auth="./dof-cart-pole-control-firebase-adminsdk-fbsvc-bd0bab0515.json",
+        poll_interval=0.100,
+    )
 
     camera_pos_factor = 0.01
 
@@ -24,13 +39,14 @@ def main():
     clock = pygame.time.Clock()
     camera = Camera(screen)
 
-    dragging = False
-    auto_center = True
-
     running = True
+    auto_center = True
+    dragging = False
     last_mouse = (0, 0)
 
     while running:
+        dt = clock.tick(60) / 1000.0
+
         for event in pygame.event.get():
             if event.type == QUIT:
                 running = False
@@ -73,16 +89,39 @@ def main():
                 auto_center = False
                 camera.target += camera_pos_factor * np.cross((camera.pos - camera.target).array, Vec3(0, 0, 1).array)
 
-        if auto_center:
-            camera.target = Vec3(0, 0, 0)
+            if keys[K_UP]:
+                cart.imu_target.sglobal.x += Vec3(
+                    camera_pos_factor * np.cos(cart.imu.sglobal.g.z),
+                    camera_pos_factor * np.sin(cart.imu.sglobal.g.z),
+                    0,
+                )
+            if keys[K_DOWN]:
+                cart.imu_target.sglobal.x -= Vec3(
+                    camera_pos_factor * np.cos(cart.imu.sglobal.g.z),
+                    camera_pos_factor * np.sin(cart.imu.sglobal.g.z),
+                    0,
+                )
+            if keys[K_RIGHT]:
+                cart.imu_target.sglobal.g.z += camera_pos_factor
+            if keys[K_LEFT]:
+                cart.imu_target.sglobal.g.z -= camera_pos_factor
+
+        raw_data = receiver.receive_raw()
+        if raw_data is not None:
+            cart.update_imu(raw_data)
+
+        cart.update_model(dt)
+        cart.update_state('model')
 
         draw_ground(screen, camera)
         draw_axes(screen, camera)
-
-        draw_cart(screen, camera, Vec3(0.0, 0.0, dw / 2.0), -0.5, np.pi / 4, hb=hb, hr=hr, eb=eb, ew=ew, dw=dw)
+        cart.draw(screen, camera)
 
         text = f"Yaw: {np.degrees(camera.angle_yaw):.1f}°, Pitch: {np.degrees(camera.angle_pitch):.1f}°"
         screen.draw_text(text, (10, 10))
+
+        if auto_center:
+            camera.target = cart.origin
 
         screen.render_frame(camera)
         pygame.display.flip()
