@@ -1,1 +1,1 @@
-# 4 DOF Cart-Pole System Control
+# 5 DOF Cart-Pole System Control
