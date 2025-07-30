@@ -110,7 +110,9 @@ def main():
         if raw_data is not None:
             cart.update_imu(raw_data)
 
-        cart.update_model(dt)
+        # TODO: dynamic fv
+        fv = [0.0, 0.0]
+        cart.update_model(dt, fv)
         cart.update_state('model')
 
         draw_ground(screen, camera)
