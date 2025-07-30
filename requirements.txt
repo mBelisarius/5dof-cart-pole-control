@@ -5,3 +5,4 @@ firebase-admin~=6.9.0
 matplotlib~=3.10.0
 sympy~=1.13.3
 ipython~=9.1.0
+qpsolvers>=4.8.0
