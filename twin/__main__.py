@@ -107,15 +107,16 @@ def main():
                 cart.imu_target.sglobal.g.z -= camera_pos_factor
 
         raw_data = receiver.receive_raw()
-        if raw_data is not None:
-            cart.update_imu(raw_data)
+        # if raw_data is not None:
+        #     cart.update_imu(raw_data)
+        #     cart.update_state('meas')
 
         # TODO: dynamic fv
-        fv = [0.0, 0.0]
+        fv = [0.6, -0.6]
         cart.update_model(dt, fv)
         cart.update_state('model')
 
-        draw_ground(screen, camera)
+        draw_ground(screen, camera, z=-cart.params['dw'] / 2.0)
         draw_axes(screen, camera)
         cart.draw(screen, camera)
 

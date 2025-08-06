@@ -1,5 +1,3 @@
-#include <cJSON.h>
-
 #include "driver/i2c.h"
 #include "esp_err.h"
 #include "esp_event.h"
@@ -45,73 +43,36 @@ void processData() {
 
   // Read data
   mb::MPU9250::SI data;
-  if (pMpu->readSI(data) != ESP_OK)
+  if (pMpu->readSI(data) == ESP_OK) {
+    ESP_LOGI(tag,
+             "Accel [m/s²]: X=%.2f  Y=%.2f  Z=%.2f | "
+             "Gyro  [rad/s]: X=%.3f  Y=%.3f  Z=%.3f",
+             data.ax, data.ay, data.az, data.gx, data.gy, data.gz);
+  } else {
     ESP_LOGE(tag, "Read failed");
+  }
 
   // Send data
-
-}
-
-void sendRawData(const char* path, const ImuRawData& data) {
-  cJSON* payload = cJSON_CreateObject();
-  cJSON_AddNumberToObject(payload, "timestamp", esp_log_timestamp());
-
-  cJSON* xddJson = cJSON_CreateObject();
-  cJSON_AddNumberToObject(xddJson, "x", data.ax);
-  cJSON_AddNumberToObject(xddJson, "y", data.ay);
-  cJSON_AddNumberToObject(xddJson, "z", data.az);
-  cJSON_AddItemToObject(payload, "xdd", xddJson);
-
-  cJSON* gdJson = cJSON_CreateObject();
-  cJSON_AddNumberToObject(gdJson, "x", data.gx);
-  cJSON_AddNumberToObject(gdJson, "y", data.gy);
-  cJSON_AddNumberToObject(gdJson, "z", data.gz);
-  cJSON_AddItemToObject(payload, "gd", gdJson);
-
-  pRtdb->Send("raw", cJSON_Print(payload));
-}
-
-void sendImuData(const char* path, const ImuData& data) {
-  cJSON* payload = cJSON_CreateObject();
-  cJSON_AddNumberToObject(payload, "timestamp", esp_log_timestamp());
-
-  cJSON* xJson = cJSON_CreateObject();
-  cJSON_AddNumberToObject(xJson, "x", data.ax);
-  cJSON_AddNumberToObject(xJson, "y", data.ay);
-  cJSON_AddNumberToObject(xJson, "z", data.az);
-  cJSON_AddItemToObject(payload, "xdd", xJson);
-
-  cJSON* xdJson = cJSON_CreateObject();
-  cJSON_AddNumberToObject(xdJson, "x", data.ax);
-  cJSON_AddNumberToObject(xdJson, "y", data.ay);
-  cJSON_AddNumberToObject(xdJson, "z", data.az);
-  cJSON_AddItemToObject(payload, "xdd", xdJson);
-
-  cJSON* xddJson = cJSON_CreateObject();
-  cJSON_AddNumberToObject(xddJson, "x", data.ax);
-  cJSON_AddNumberToObject(xddJson, "y", data.ay);
-  cJSON_AddNumberToObject(xddJson, "z", data.az);
-  cJSON_AddItemToObject(payload, "xdd", xddJson);
-
-  cJSON* gJson = cJSON_CreateObject();
-  cJSON_AddNumberToObject(gJson, "x", data.gx);
-  cJSON_AddNumberToObject(gJson, "y", data.gy);
-  cJSON_AddNumberToObject(gJson, "z", data.gz);
-  cJSON_AddItemToObject(payload, "gd", gJson);
-
-  cJSON* gdJson = cJSON_CreateObject();
-  cJSON_AddNumberToObject(gdJson, "x", data.gx);
-  cJSON_AddNumberToObject(gdJson, "y", data.gy);
-  cJSON_AddNumberToObject(gdJson, "z", data.gz);
-  cJSON_AddItemToObject(payload, "gd", gdJson);
-
-  cJSON* gddJson = cJSON_CreateObject();
-  cJSON_AddNumberToObject(gddJson, "x", data.gx);
-  cJSON_AddNumberToObject(gddJson, "y", data.gy);
-  cJSON_AddNumberToObject(gddJson, "z", data.gz);
-  cJSON_AddItemToObject(payload, "gd", gddJson);
-
-  pRtdb->Send("imu", cJSON_Print(payload));
+  char payload[128];
+  int len = snprintf(payload, sizeof(payload),
+                     "{"
+                     "\"xdd\":{"
+                     "\"x\":%.2f,"
+                     "\"y\":%.2f,"
+                     "\"z\":%.2f"
+                     "},"
+                     "\"gd\":{"
+                     "\"x\":%.3f,"
+                     "\"y\":%.3f,"
+                     "\"z\":%.3f"
+                     "}"
+                     "}",
+                     data.ax, data.ay, data.az, data.gx, data.gy, data.gz);
+  if (len < 0 || len >= static_cast<int>(sizeof(payload))) {
+    ESP_LOGE(tag, "JSON payload truncated");
+  } else {
+    pRtdb->Send("raw", payload);
+  }
 }
 
 extern "C" void app_main(void) {
@@ -125,9 +86,9 @@ extern "C" void app_main(void) {
 
   // MPU9250 setup
   mb::MPU9250::AxisMap MpuAxisMap[3] = {
-      {1, -1},  // new X = -raw.ay
-      {2, -1},  // new Y = -raw.az
-      {0, -1}   // new Z = -raw.ax
+      {1, -1},  // new X = +raw.ay
+      {2, -1},  // new Y = +raw.ax
+      {0, -1}   // new Z = -raw.az
   };
   pMpu =
       new mb::MPU9250(I2C_NUM_0, GPIO_NUM_21, GPIO_NUM_22, 400000, MpuAxisMap);

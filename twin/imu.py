@@ -61,10 +61,11 @@ class Imu:
         return deepcopy(self)
 
     def update(self, accel, gyro, time):
-        dt = time - self.sglobal.time
         self.slocal.time = time
         self.sglobal.time = time
 
+        dt = time - self.sglobal.time
+        dt = max(0.016, dt)  # TODO: Fix and remove
         if dt <= 0.0:
             return
 
@@ -88,4 +89,3 @@ class Imu:
         self.sglobal.x += Vec3(self.sglobal.xd * dt)
         self.sglobal.gdd = (gyro_global - self.sglobal.gd) / dt
         self.sglobal.g += gyro_global * dt
-

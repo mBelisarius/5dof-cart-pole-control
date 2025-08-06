@@ -1,3 +1,5 @@
+import math
+
 from vec3 import Vec3
 from screen import Camera, Screen, ScreenObject, BoxSO, DiskSO, LineSO
 
@@ -26,19 +28,15 @@ def draw_axes(screen, camera, length=1.0, offset_x=0.9, offset_y=0.8):
     screen.draw_line(camera, LineSO(po, pz - po, color_z))
 
 
-def draw_ground(screen, camera, z=0.0, size=5.0, step=0.25, color=(128, 128, 128)):
-    # draw lines parallel to X axis
-    y = -size
-    while y <= size:
-        p1 = Vec3(-size, y, z)
-        p2 = Vec3(size, y, z)
-        screen.draw_line(camera, LineSO(p1, p2, color))
-        y += step
+def draw_ground(screen, camera, z=0.0, size=2.0, step=0.1, color=(128, 128, 128)):
+    num_lines = 2 * math.ceil(size / step) + 1
+    for i in range(num_lines):
+        # Draw lines parallel to X axis
+        p1_x = Vec3(-size, -size + i * step, z)
+        p2_x = Vec3(size, -size + i * step, z)
+        screen.draw_line(camera, LineSO(p1_x, p2_x, color))
 
-    # draw lines parallel to Y axis
-    x = -size
-    while x <= size:
-        p1 = Vec3(x, -size, z)
-        p2 = Vec3(x, size, z)
-        screen.draw_line(camera, LineSO(p1, p2, color))
-        x += step
+        # Draw lines parallel to Y axis
+        p1_y = Vec3(-size + i * step, -size, z)
+        p2_y = Vec3(-size + i * step, size, z)
+        screen.draw_line(camera, LineSO(p1_y, p2_y, color))

@@ -208,3 +208,11 @@ class Vec3:
     def _instance_rotate_cam(self, theta: float, phi: float) -> Vec3:
         self.array = Vec3.rotate_cam(self, theta, phi).array
         return self
+
+    @staticmethod
+    def saturate(vec: Vec3, lower: float, upper: float) -> Vec3:
+        return Vec3(np.clip(vec.array, lower, upper))
+
+    def _instance_saturate(self, lower: float, upper: float) -> Vec3:
+        self.array = Vec3.saturate(self, lower, upper).array
+        return self

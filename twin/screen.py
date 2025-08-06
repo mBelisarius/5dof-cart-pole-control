@@ -38,7 +38,104 @@ class Screen:
             proj = [camera.project(v) for v in obj.vertices]
 
             if isinstance(obj, LineSO):
-                pygame.draw.line(self._pg_screen, obj.color, proj[0], proj[1], obj.width)
+                # Get the 3D points relative to camera before projection
+                v1, v2 = obj.vertices
+                p1 = v1 - camera.target
+                p2 = v2 - camera.target
+
+                # Transform points to camera space
+                p1_cam = Vec3.rotate_cam(p1, camera.pitch_adj, camera.yaw_adj)
+                p2_cam = Vec3.rotate_cam(p2, camera.pitch_adj, camera.yaw_adj)
+
+                # Near plane clipping (a small offset from camera)
+                near_plane = -camera.distance + 0.1
+
+                # If both points are behind near plane, skip
+                if p1_cam.z <= near_plane and p2_cam.z <= near_plane:
+                    continue
+
+                # Clip against near plane if needed
+                if p1_cam.z <= near_plane or p2_cam.z <= near_plane:
+                    t = (near_plane - p1_cam.z) / (p2_cam.z - p1_cam.z)
+                    if p1_cam.z <= near_plane:
+                        p1_cam = p1_cam + (p2_cam - p1_cam) * t
+                    else:
+                        p2_cam = p1_cam + (p2_cam - p1_cam) * t
+
+                # Project points with corrected perspective
+                def project_point(p_cam):
+                    z_adj = camera.distance + p_cam.z
+                    if z_adj <= 0.1:  # Prevent division by very small numbers
+                        z_adj = 0.1
+                    fov = camera.fov / z_adj
+                    x = int(self.width / 2 + p_cam.x * fov)
+                    y = int(self.height / 2 + p_cam.y * fov)
+                    return x, y
+
+                x1, y1 = project_point(p1_cam)
+                x2, y2 = project_point(p2_cam)
+
+                # Screen-space clipping
+                def clip_line_to_screen(x1, y1, x2, y2):
+                    # Cohen-Sutherland algorithm
+                    INSIDE = 0
+                    LEFT = 1
+                    RIGHT = 2
+                    BOTTOM = 4
+                    TOP = 8
+
+                    def compute_code(x, y):
+                        code = INSIDE
+                        if x < 0:
+                            code |= LEFT
+                        elif x >= self.width:
+                            code |= RIGHT
+                        if y < 0:
+                            code |= BOTTOM
+                        elif y >= self.height:
+                            code |= TOP
+                        return code
+
+                    code1 = compute_code(x1, y1)
+                    code2 = compute_code(x2, y2)
+
+                    while True:
+                        if code1 == 0 and code2 == 0:
+                            return True, (x1, y1), (x2, y2)
+                        if code1 & code2 != 0:
+                            return False, None, None
+
+                        code = code1 if code1 != 0 else code2
+                        x, y = 0, 0
+
+                        if code & TOP:
+                            x = x1 + (x2 - x1) * (self.height - 1 - y1) / (y2 - y1)
+                            y = self.height - 1
+                        elif code & BOTTOM:
+                            x = x1 + (x2 - x1) * (0 - y1) / (y2 - y1)
+                            y = 0
+                        elif code & RIGHT:
+                            y = y1 + (y2 - y1) * (self.width - 1 - x1) / (x2 - x1)
+                            x = self.width - 1
+                        elif code & LEFT:
+                            y = y1 + (y2 - y1) * (0 - x1) / (x2 - x1)
+                            x = 0
+
+                        if code == code1:
+                            x1, y1 = x, y
+                            code1 = compute_code(x1, y1)
+                        else:
+                            x2, y2 = x, y
+                            code2 = compute_code(x2, y2)
+
+                visible, p1_screen, p2_screen = clip_line_to_screen(x1, y1, x2, y2)
+                if visible:
+                    try:
+                        pygame.draw.line(self._pg_screen, obj.color, p1_screen, p2_screen, obj.width)
+                    except pygame.error:
+                        pass
+
+
             elif isinstance(obj, TriangleSO):
                 pygame.draw.polygon(self._pg_screen, obj.color, proj)
             else:
@@ -87,14 +184,8 @@ class Camera:
         return self.target + Vec3.rotate(Vec3(0, 0, self.distance), self.angle_pitch, self.angle_yaw)
 
     def project(self, point: Vec3):
-        # Project only if the point is in front of the camera
         p = point - self.target
         p_rot = Vec3.rotate_cam(p, self.pitch_adj, self.yaw_adj)
-
-        # Discard points behind the camera
-        safe_factor = 1.0 - 1.0e-4
-        if p_rot.z < -self.distance * safe_factor:
-            p_rot.z = -self.distance * safe_factor
 
         # Perspective projection
         fov = self.fov / (self.distance + p_rot.z + 1.0e-8)

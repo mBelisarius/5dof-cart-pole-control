@@ -14,12 +14,14 @@ from vec3 import Vec3
 
 class Cart:
     def __init__(self, hbc, hb, hr, eb, ew, dw):
-        self._hbc = hbc
-        self._hb = hb
-        self._hr = hr
-        self._eb = eb
-        self._ew = ew
-        self._dw = dw
+        self.params = {
+            'hbc': hbc,
+            'hb': hb,
+            'hr': hr,
+            'eb': eb,
+            'ew': ew,
+            'dw': dw,
+        }
 
         self._imus = {
             'fusion': Imu(),
@@ -35,18 +37,22 @@ class Cart:
             'meas-origin-last': Imu(),
         }
 
-        for imu in self._imus.values():
-            imu.sglobal.x.z = self._hbc
-            imu.slocal.x.z = self._hbc
+        for key, imu in self._imus.items():
+            if 'origin' in key:
+                imu.sglobal.x.z = 0.0
+                imu.slocal.x.z = 0.0
+            else:
+                imu.sglobal.x.z = self.params['hbc']
+                imu.slocal.x.z = self.params['hbc']
+
             imu.sglobal.g.y = 0.01
             imu.slocal.g.y = 0.01
 
         self._solver = sv.SolverLcp(5)
-        print(self._make_f0())
 
     @property
     def origin(self):
-        return self.center - Vec3.rotate(Vec3(0, 0, self._hbc), self.theta, self.phi)
+        return self.center - Vec3.rotate(Vec3(0, 0, self.params['hbc']), self.theta, self.phi)
 
     @property
     def center(self):
@@ -150,6 +156,7 @@ class Cart:
 
     def update_state(self, source):
         if source == 'meas':
+            print(self._imus['meas'])
             self._imus['fusion'] = self._imus['meas'].copy()
             self._imus['fusion-origin'] = self._imus['meas-origin'].copy()
         elif source == 'model':
@@ -162,35 +169,35 @@ class Cart:
         # TODO: Fix theta rotation
         axle = BoxSO(
             center=self.origin,
-            width=2 * self._eb,
-            height=2 * self._hr,
-            depth=2 * self._hr,
+            width=2 * self.params['eb'],
+            height=2 * self.params['hr'],
+            depth=2 * self.params['hr'],
             theta=self.theta,
             phi=self.phi,
             color=(0, 0, 255)
         )
         body = BoxSO(
             center=self.center,
-            width=2 * self._hr,
-            height=self._hb - self._hr,
-            depth=2 * self._hr,
+            width=2 * self.params['hr'],
+            height=self.params['hb'] - self.params['hr'],
+            depth=2 * self.params['hr'],
             theta=self.theta,
             phi=self.phi,
             color=(0, 0, 255)
         )
         wheel_left = DiskSO(
-            center=self.origin + Vec3.rotate(Vec3(0, self._eb, 0), self.theta, self.phi),
-            radius=self._dw / 2.0,
-            thickness=self._ew,
+            center=self.origin + Vec3.rotate(Vec3(0, self.params['eb'], 0), self.theta, self.phi),
+            radius=self.params['dw'] / 2.0,
+            thickness=self.params['ew'],
             theta=0,
             phi=self.phi + np.pi / 2,
             color=(0, 200, 0),
             steps=24,
         )
         wheel_right = DiskSO(
-            center=self.origin + Vec3.rotate(Vec3(0, -self._eb, 0), self.theta, self.phi),
-            radius=self._dw / 2.0,
-            thickness=self._ew,
+            center=self.origin + Vec3.rotate(Vec3(0, -self.params['eb'], 0), self.theta, self.phi),
+            radius=self.params['dw'] / 2.0,
+            thickness=self.params['ew'],
             theta=0,
             phi=self.phi + np.pi / 2,
             color=(0, 200, 0),
